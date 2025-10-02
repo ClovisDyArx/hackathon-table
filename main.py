@@ -1,17 +1,21 @@
 import os
 import base64
+import json
+import io
 from io import BytesIO
-from typing import Dict, List
+from typing import Dict, List, Optional
 from dotenv import load_dotenv
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import httpx
 from PIL import Image
+from voice import process_voice_table_creation, process_voice_table_edit, save_audio_file, cleanup_temp_file
+from tts import text_to_speech, speak_text, get_available_voices, voice_feedback
 
 # Load environment variables from .env file
 load_dotenv()
@@ -156,6 +160,7 @@ async def root(request: Request):
     """
     return templates.TemplateResponse("table.html", {"request": request})
 
+
 @app.get("/health")
 async def health_check():
     """
@@ -194,6 +199,7 @@ async def process_table(file: UploadFile = File(...)):
     
     # Process with Vision API
     try:
+        # voice_feedback.speak_processing("image analysis")  # Temporarily disabled
         table_data = await process_image_with_vision_api(image_base64)
         
         # Validate response structure
@@ -203,6 +209,9 @@ async def process_table(file: UploadFile = File(...)):
                 detail="Invalid response structure from AI model"
             )
         
+        # Provide voice feedback
+        # voice_feedback.speak_table_created(table_data["headers"], len(table_data["rows"]))  # Temporarily disabled
+        
         return TableData(**table_data)
     
     except HTTPException:
@@ -211,6 +220,209 @@ async def process_table(file: UploadFile = File(...)):
         raise HTTPException(
             status_code=500,
             detail=f"Error processing image: {str(e)}"
+        )
+
+@app.post("/api/create_table_voice", response_model=TableData)
+async def create_table_voice(file: UploadFile = File(...)):
+    """
+    Create a table from voice description using Whisper and GPT-4.
+    
+    This endpoint:
+    1. Accepts an audio file (WAV, MP3, etc.)
+    2. Transcribes it using OpenAI's Whisper API
+    3. Generates table structure using GPT-4
+    4. Returns structured table data
+    
+    Returns:
+        TableData: Object containing headers and rows arrays
+    """
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith('audio/'):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Please upload an audio file (WAV, MP3, etc.)"
+        )
+    
+    # Read uploaded file
+    audio_bytes = await file.read()
+    
+    # Save to temporary file
+    file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'wav'
+    temp_file_path = save_audio_file(audio_bytes, file_extension)
+    
+    try:
+        # Process voice input to create table
+        # voice_feedback.speak_processing("voice table creation")  # Temporarily disabled
+        table_data = await process_voice_table_creation(temp_file_path)
+        
+        # Validate response structure
+        if "headers" not in table_data or "rows" not in table_data:
+            raise HTTPException(
+                status_code=500,
+                detail="Invalid response structure from AI model"
+            )
+        
+        # Provide voice feedback
+        # voice_feedback.speak_table_created(table_data["headers"], len(table_data["rows"]))  # Temporarily disabled
+        
+        return TableData(**table_data)
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing voice input: {str(e)}"
+        )
+    finally:
+        # Clean up temporary file
+        cleanup_temp_file(temp_file_path)
+
+@app.post("/api/edit_table_voice", response_model=TableData)
+async def edit_table_voice(
+    file: UploadFile = File(...),
+    current_table: str = Form(...)
+):
+    """
+    Edit an existing table based on voice instructions using Whisper and GPT-4.
+    
+    This endpoint:
+    1. Accepts an audio file with edit instructions
+    2. Accepts current table data as JSON string
+    3. Transcribes audio using OpenAI's Whisper API
+    4. Applies edits using GPT-4
+    5. Returns updated table data
+    
+    Returns:
+        TableData: Object containing updated headers and rows arrays
+    """
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith('audio/'):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Please upload an audio file (WAV, MP3, etc.)"
+        )
+    
+    # Parse current table data
+    if not current_table:
+        raise HTTPException(
+            status_code=400,
+            detail="Current table data is required for editing"
+        )
+    
+    try:
+        current_table_data = json.loads(current_table)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid JSON format for current table data"
+        )
+    
+    # Read uploaded file
+    audio_bytes = await file.read()
+    
+    # Save to temporary file
+    file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'wav'
+    temp_file_path = save_audio_file(audio_bytes, file_extension)
+    
+    try:
+        # Process voice input to edit table
+        # voice_feedback.speak_processing("voice table editing")  # Temporarily disabled
+        updated_table_data = await process_voice_table_edit(temp_file_path, current_table_data)
+        
+        # Validate response structure
+        if "headers" not in updated_table_data or "rows" not in updated_table_data:
+            raise HTTPException(
+                status_code=500,
+                detail="Invalid response structure from AI model"
+            )
+        
+        # Provide voice feedback
+        # voice_feedback.speak_table_edited("Table has been updated successfully")  # Temporarily disabled
+        
+        return TableData(**updated_table_data)
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing voice input: {str(e)}"
+        )
+    finally:
+        # Clean up temporary file
+        cleanup_temp_file(temp_file_path)
+
+@app.post("/api/text_to_speech")
+async def convert_text_to_speech(
+    text: str,
+    voice: Optional[str] = None,
+    use_edge: bool = True
+):
+    """
+    Convert text to speech and return audio data.
+    
+    Args:
+        text: Text to convert to speech
+        voice: Voice to use (optional, uses default if not provided)
+        use_edge: Use Edge TTS (online) if True, offline TTS if False
+        
+    Returns:
+        StreamingResponse with audio data
+    """
+    try:
+        audio_data = await text_to_speech(text, voice, use_edge)
+        
+        if not audio_data:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate speech audio"
+            )
+        
+        return StreamingResponse(
+            io.BytesIO(audio_data),
+            media_type="audio/wav",
+            headers={"Content-Disposition": "attachment; filename=speech.wav"}
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating speech: {str(e)}"
+        )
+
+@app.get("/api/voices")
+async def get_voices():
+    """
+    Get list of available voices for text-to-speech.
+    
+    Returns:
+        List of available voices
+    """
+    try:
+        voices = get_available_voices()
+        return {"voices": voices}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting voices: {str(e)}"
+        )
+
+@app.post("/api/speak")
+async def speak_text_endpoint(text: str = Form(...), voice: Optional[str] = Form(None)):
+    """
+    Convert text to speech and play immediately on server.
+    
+    Args:
+        text: Text to speak
+        voice: Voice to use (optional)
+        
+    Returns:
+        Success message
+    """
+    try:
+        speak_text(text, voice)
+        return {"message": "Speech generated and played successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error playing speech: {str(e)}"
         )
 
 if __name__ == "__main__":

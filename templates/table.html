@@ -154,9 +154,12 @@
                 </div>
             </div>
             
-            <div class="text-center mt-6">
+            <div class="text-center mt-6 space-x-4">
                 <button id="process-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" disabled>
                     Process Table
+                </button>
+                <button id="voice-describe-btn" class="bg-purple-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-purple-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" disabled>
+                    🎤 Describe Table with Voice
                 </button>
             </div>
         </div>
@@ -174,9 +177,17 @@
             <div class="bg-white p-8 rounded-xl shadow-md">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold text-gray-900">Editable Table</h2>
-                    <button id="export-csv" class="bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-all duration-200">
-                        Export CSV
-                    </button>
+                    <div class="space-x-3">
+                        <button id="voice-edit-btn" class="bg-purple-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-purple-700 transition-all duration-200">
+                            🎤 Edit with Voice
+                        </button>
+                        <button id="voice-describe-table-btn" class="bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition-all duration-200">
+                            🔊 Describe Table
+                        </button>
+                        <button id="export-csv" class="bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-all duration-200">
+                            Export CSV
+                        </button>
+                    </div>
                 </div>
                 <div id="table-container" class="overflow-x-auto">
                     <!-- Table will be rendered here -->
@@ -202,6 +213,9 @@
         const previewImage = document.getElementById('preview-image');
         const removeImageBtn = document.getElementById('remove-image');
         const processBtn = document.getElementById('process-btn');
+        const voiceDescribeBtn = document.getElementById('voice-describe-btn');
+        const voiceEditBtn = document.getElementById('voice-edit-btn');
+        const voiceDescribeTableBtn = document.getElementById('voice-describe-table-btn');
         const loadingIndicator = document.getElementById('loading-indicator');
         const outputSection = document.getElementById('output-section');
         const tableContainer = document.getElementById('table-container');
@@ -258,6 +272,20 @@
             exportTableToCSV();
         });
 
+        voiceDescribeBtn.addEventListener('click', async () => {
+            if (selectedFile) {
+                await processTableWithVoice();
+            }
+        });
+
+        voiceEditBtn.addEventListener('click', async () => {
+            await editTableWithVoice();
+        });
+
+        voiceDescribeTableBtn.addEventListener('click', async () => {
+            await describeCurrentTable();
+        });
+
         function handleFileSelection(file) {
             if (!file.type.startsWith('image/')) {
                 showError('Please select a valid image file');
@@ -273,6 +301,7 @@
                 uploadPrompt.classList.add('hidden');
                 previewContainer.classList.remove('hidden');
                 processBtn.disabled = false;
+            voiceDescribeBtn.disabled = false;
             };
             reader.readAsDataURL(file);
             
@@ -286,6 +315,7 @@
             uploadPrompt.classList.remove('hidden');
             previewContainer.classList.add('hidden');
             processBtn.disabled = true;
+            voiceDescribeBtn.disabled = true;
         }
 
         async function processTable() {
@@ -471,6 +501,213 @@
             newRow.appendChild(emptyCell);
             
             tbody.appendChild(newRow);
+        }
+
+        // Voice processing functions
+        async function processTableWithVoice() {
+            if (!selectedFile) return;
+
+            // Create audio input for voice description
+            const audioInput = document.createElement('input');
+            audioInput.type = 'file';
+            audioInput.accept = 'audio/*';
+            audioInput.style.display = 'none';
+            document.body.appendChild(audioInput);
+
+            // Show voice recording prompt
+            const userConfirmed = confirm('Please record your voice description of the table and then select the audio file. Click OK to continue.');
+            if (!userConfirmed) {
+                document.body.removeChild(audioInput);
+                return;
+            }
+
+            audioInput.click();
+
+            audioInput.onchange = async (e) => {
+                const audioFile = e.target.files[0];
+                if (!audioFile) {
+                    document.body.removeChild(audioInput);
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', audioFile);
+
+                showLoading(true);
+                hideError();
+                outputSection.classList.add('hidden');
+
+                try {
+                    const response = await fetch('http://localhost:8000/api/create_table_voice', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.detail || 'Failed to process voice input');
+                    }
+
+                    const data = await response.json();
+                    renderTable(data);
+                    outputSection.classList.remove('hidden');
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError(error.message || 'An error occurred while processing voice input');
+                } finally {
+                    showLoading(false);
+                    document.body.removeChild(audioInput);
+                }
+            };
+        }
+
+        async function editTableWithVoice() {
+            const table = tableContainer.querySelector('table');
+            if (!table) {
+                showError('No table to edit');
+                return;
+            }
+
+            // Get current table data
+            const currentTableData = getCurrentTableData();
+
+            // Create audio input for voice editing instructions
+            const audioInput = document.createElement('input');
+            audioInput.type = 'file';
+            audioInput.accept = 'audio/*';
+            audioInput.style.display = 'none';
+            document.body.appendChild(audioInput);
+
+            const userConfirmed = confirm('Please record your voice instructions for editing the table and then select the audio file. Click OK to continue.');
+            if (!userConfirmed) {
+                document.body.removeChild(audioInput);
+                return;
+            }
+
+            audioInput.click();
+
+            audioInput.onchange = async (e) => {
+                const audioFile = e.target.files[0];
+                if (!audioFile) {
+                    document.body.removeChild(audioInput);
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', audioFile);
+                formData.append('current_table', JSON.stringify(currentTableData));
+
+                showLoading(true);
+                hideError();
+
+                try {
+                    console.log('Sending voice edit request...');
+                    const response = await fetch('http://localhost:8000/api/edit_table_voice', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.text();
+                        console.error('API Error:', error);
+                        throw new Error(`API Error: ${error}`);
+                    }
+
+                    const data = await response.json();
+                    console.log('Voice edit successful:', data);
+                    renderTable(data);
+                    // Table updated successfully with voice commands
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError(`Voice edit failed: ${error.message}`);
+                } finally {
+                    showLoading(false);
+                    document.body.removeChild(audioInput);
+                }
+            };
+        }
+
+        async function describeCurrentTable() {
+            const table = tableContainer.querySelector('table');
+            if (!table) {
+                showError('No table to describe');
+                return;
+            }
+
+            const tableData = getCurrentTableData();
+            const description = generateTableDescription(tableData);
+            
+            console.log('Generated description:', description);
+
+            try {
+                const formData = new FormData();
+                formData.append('text', description);
+                
+                const response = await fetch('http://localhost:8000/api/speak', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    console.error('API Error:', error);
+                    throw new Error(`API Error: ${error}`);
+                }
+
+                const result = await response.json();
+                console.log('Voice description successful:', result);
+                // Voice description generated successfully
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError(`Failed to generate voice description: ${error.message}`);
+            }
+        }
+
+        function getCurrentTableData() {
+            const table = tableContainer.querySelector('table');
+            if (!table) return { headers: [], rows: [] };
+
+            const headers = [];
+            const headerCells = table.querySelectorAll('thead th .notion-table-cell-text');
+            headerCells.forEach(cell => {
+                if (cell.textContent.trim() !== '+') { // Skip add column button
+                    headers.push(cell.textContent.trim());
+                }
+            });
+
+            const rows = [];
+            const bodyRows = table.querySelectorAll('tbody tr');
+            bodyRows.forEach(row => {
+                const cells = row.querySelectorAll('td .notion-table-cell-text');
+                const rowData = [];
+                cells.forEach(cell => {
+                    rowData.push(cell.textContent.trim());
+                });
+                if (rowData.length > 0) {
+                    rows.push(rowData);
+                }
+            });
+
+            return { headers, rows };
+        }
+
+        function generateTableDescription(tableData) {
+            const { headers, rows } = tableData;
+            let description = `This table has ${headers.length} columns: ${headers.join(', ')}. `;
+            description += `It contains ${rows.length} rows of data. `;
+            
+            if (rows.length > 0) {
+                description += `The first few rows contain: `;
+                const sampleRows = rows.slice(0, Math.min(3, rows.length));
+                sampleRows.forEach((row, index) => {
+                    description += `Row ${index + 1}: ${row.join(', ')}. `;
+                });
+            }
+            
+            return description;
         }
     </script>
 

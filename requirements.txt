@@ -7,3 +7,8 @@ httpx
 Pillow
 jinja2
 python-dotenv
+openai
+pyttsx3
+edge-tts
+pydub
+ffmpeg-python
