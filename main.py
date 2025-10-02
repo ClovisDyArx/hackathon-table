@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -153,12 +153,12 @@ async def process_image_with_vision_api(image_base64: str) -> Dict[str, List]:
                 detail=f"Failed to parse AI response as JSON: {str(e)}\nResponse: {content}"
             )
 
-@app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
+@app.get("/")
+async def root():
     """
-    Serve the main table processing interface.
+    Redirect to the joke page.
     """
-    return templates.TemplateResponse("table.html", {"request": request})
+    return RedirectResponse(url="/joke")
 
 
 @app.get("/whack-a-mole", response_class=HTMLResponse)
