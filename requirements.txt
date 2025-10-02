@@ -1,1 +1,9 @@
 flask
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+httpx
+Pillow
+jinja2
+python-dotenv

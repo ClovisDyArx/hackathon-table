@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table Screenshot Processor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --c-texPri: rgb(55, 53, 47);
+            --c-texTer: rgb(55, 53, 47);
+            --notion-border: rgba(55, 53, 47, 0.16);
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+        }
+
+        /* Notion-style table */
+        .notion-table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .notion-table-cell-text {
+            padding: 7px 9px;
+            background-color: transparent;
+            font-size: 14px;
+            line-height: 20px;
+            min-height: 1em;
+            color: var(--c-texPri);
+            -webkit-text-fill-color: var(--c-texTer);
+            max-width: 100%;
+            width: 100%;
+            white-space: break-spaces;
+            word-break: break-word;
+            caret-color: var(--c-texPri);
+            outline: none;
+            border: 1px solid var(--notion-border);
+            transition: background-color 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+        }
+
+        .notion-table-cell-text:focus {
+            background-color: rgba(35, 131, 226, 0.07);
+            box-shadow: inset 0 0 0 1px rgb(35, 131, 226);
+        }
+
+        .notion-table-cell-text[placeholder]:empty:before {
+            content: attr(placeholder);
+            color: rgba(55, 53, 47, 0.4);
+        }
+
+        .notion-table th {
+            background-color: rgb(247, 246, 243);
+            font-weight: 600;
+            text-align: left;
+            padding: 0;
+        }
+
+        .notion-table td {
+            padding: 0;
+        }
+
+        /* Add column/row buttons */
+        .add-column-btn, .add-row-btn {
+            background-color: transparent;
+            border: 1px dashed rgba(55, 53, 47, 0.3);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(55, 53, 47, 0.5);
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .add-column-btn:hover, .add-row-btn:hover {
+            background-color: rgba(35, 131, 226, 0.1);
+            border-color: rgb(35, 131, 226);
+            color: rgb(35, 131, 226);
+        }
+
+        .add-column-btn {
+            min-width: 40px;
+            vertical-align: top;
+        }
+
+        .add-row-btn {
+            height: 40px;
+            width: 100%;
+        }
+
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area.drag-over {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #3b82f6;
+            animation: spin 1s ease infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-gray-900">Table Screenshot Processor</h1>
+            <p class="text-lg text-gray-600 mt-2">Upload a screenshot of any table and get an editable Notion-style table.</p>
+        </header>
+
+        <!-- Upload Section -->
+        <div class="bg-white p-8 rounded-xl shadow-md mb-8">
+            <div id="upload-area" class="upload-area p-12 text-center cursor-pointer">
+                <input type="file" id="file-input" accept="image/*" class="hidden" />
+                <div id="upload-prompt">
+                    <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <p class="text-xl font-semibold text-gray-700 mb-2">Click to upload or drag and drop</p>
+                    <p class="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                </div>
+                <div id="preview-container" class="hidden">
+                    <img id="preview-image" class="preview-image mx-auto mb-4" />
+                    <p class="text-sm text-gray-600 mb-4">Preview</p>
+                    <button id="remove-image" class="text-red-600 hover:text-red-800 font-medium">Remove Image</button>
+                </div>
+            </div>
+            
+            <div class="text-center mt-6">
+                <button id="process-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" disabled>
+                    Process Table
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading-indicator" class="hidden bg-white p-8 rounded-xl shadow-md mb-8">
+            <div class="flex justify-center items-center">
+                <div class="spinner"></div>
+                <p class="ml-4 text-gray-600 text-lg">Extracting table data with AI...</p>
+            </div>
+        </div>
+
+        <!-- Output Section -->
+        <div id="output-section" class="hidden">
+            <div class="bg-white p-8 rounded-xl shadow-md">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Editable Table</h2>
+                    <button id="export-csv" class="bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-all duration-200">
+                        Export CSV
+                    </button>
+                </div>
+                <div id="table-container" class="overflow-x-auto">
+                    <!-- Table will be rendered here -->
+                </div>
+                <p class="text-sm text-gray-500 mt-4">Click on any cell to edit its content</p>
+            </div>
+        </div>
+
+        <!-- Error Section -->
+        <div id="error-section" class="hidden">
+            <div class="bg-red-50 border border-red-200 p-6 rounded-xl">
+                <h3 class="text-lg font-semibold text-red-800 mb-2">Error</h3>
+                <p id="error-message" class="text-red-600"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const previewContainer = document.getElementById('preview-container');
+        const previewImage = document.getElementById('preview-image');
+        const removeImageBtn = document.getElementById('remove-image');
+        const processBtn = document.getElementById('process-btn');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const outputSection = document.getElementById('output-section');
+        const tableContainer = document.getElementById('table-container');
+        const errorSection = document.getElementById('error-section');
+        const errorMessage = document.getElementById('error-message');
+        const exportCsvBtn = document.getElementById('export-csv');
+
+        let selectedFile = null;
+
+        // Click to upload
+        uploadArea.addEventListener('click', (e) => {
+            if (e.target !== removeImageBtn && !removeImageBtn.contains(e.target)) {
+                fileInput.click();
+            }
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelection(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
+
+        removeImageBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearFileSelection();
+        });
+
+        processBtn.addEventListener('click', async () => {
+            if (selectedFile) {
+                await processTable();
+            }
+        });
+
+        exportCsvBtn.addEventListener('click', () => {
+            exportTableToCSV();
+        });
+
+        function handleFileSelection(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('Please select a valid image file');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                uploadPrompt.classList.add('hidden');
+                previewContainer.classList.remove('hidden');
+                processBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+            
+            hideError();
+        }
+
+        function clearFileSelection() {
+            selectedFile = null;
+            fileInput.value = '';
+            previewImage.src = '';
+            uploadPrompt.classList.remove('hidden');
+            previewContainer.classList.add('hidden');
+            processBtn.disabled = true;
+        }
+
+        async function processTable() {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            showLoading(true);
+            hideError();
+            outputSection.classList.add('hidden');
+
+            try {
+                const response = await fetch('http://localhost:8000/api/process_table', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to process image');
+                }
+
+                const data = await response.json();
+                renderTable(data);
+                outputSection.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError(error.message || 'An error occurred while processing the table');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function renderTable(data) {
+            const { headers, rows } = data;
+
+            if (!headers || headers.length === 0) {
+                tableContainer.innerHTML = `<p class="text-center text-gray-500 py-12">No table data found in the image.</p>`;
+                return;
+            }
+
+            let tableHTML = `<table class="notion-table">
+                <thead>
+                    <tr>`;
+            
+            headers.forEach(header => {
+                tableHTML += `<th class="notion-table-header">
+                    <div class="notion-table-cell-text" contenteditable="true" spellcheck="true" 
+                         placeholder=" " role="textbox" aria-label="Edit header" 
+                         tabindex="0">${header}</div>
+                </th>`;
+            });
+
+            // Add column button
+            tableHTML += `<th class="notion-table-header">
+                <button class="add-column-btn" onclick="addColumn()" title="Add column">+</button>
+            </th>`;
+
+            tableHTML += `</tr></thead><tbody>`;
+
+            rows.forEach(row => {
+                tableHTML += `<tr>`;
+                row.forEach(cell => {
+                    tableHTML += `<td>
+                        <div class="notion-table-cell-text" contenteditable="true" spellcheck="true" 
+                             placeholder=" " role="textbox" aria-label="Start typing to edit text" 
+                             tabindex="0">${cell}</div>
+                    </td>`;
+                });
+                // Add empty cell in the add column column
+                tableHTML += `<td></td>`;
+                tableHTML += `</tr>`;
+            });
+
+            tableHTML += `</tbody></table>`;
+            
+            // Add row button below table
+            tableHTML += `<button class="add-row-btn" onclick="addRow()" title="Add row">+ Add Row</button>`;
+            
+            tableContainer.innerHTML = tableHTML;
+        }
+
+        function exportTableToCSV() {
+            const table = tableContainer.querySelector('table');
+            if (!table) return;
+
+            let csv = [];
+            const rows = table.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('th, td');
+                const rowData = [];
+                
+                Array.from(cells).forEach(cell => {
+                    // Skip the add column button cell
+                    const textDiv = cell.querySelector('.notion-table-cell-text');
+                    if (textDiv) {
+                        const text = textDiv.textContent;
+                        // Escape quotes and wrap in quotes if contains comma
+                        rowData.push(text.includes(',') ? `"${text.replace(/"/g, '""')}"` : text);
+                    }
+                });
+                
+                if (rowData.length > 0) {
+                    csv.push(rowData.join(','));
+                }
+            });
+
+            const csvContent = csv.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'table_export.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function showLoading(show) {
+            if (show) {
+                loadingIndicator.classList.remove('hidden');
+            } else {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorSection.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorSection.classList.add('hidden');
+        }
+
+        function addColumn() {
+            const table = tableContainer.querySelector('table');
+            if (!table) return;
+
+            // Add header cell
+            const headerRow = table.querySelector('thead tr');
+            const addColumnBtn = headerRow.querySelector('.add-column-btn');
+            const newHeader = document.createElement('th');
+            newHeader.className = 'notion-table-header';
+            newHeader.innerHTML = `<div class="notion-table-cell-text" contenteditable="true" spellcheck="true" 
+                                        placeholder=" " role="textbox" aria-label="Edit header" 
+                                        tabindex="0">New Column</div>`;
+            headerRow.insertBefore(newHeader, addColumnBtn.parentElement);
+
+            // Add cells to each row
+            const bodyRows = table.querySelectorAll('tbody tr');
+            bodyRows.forEach(row => {
+                const addColumnCell = row.lastElementChild;
+                const newCell = document.createElement('td');
+                newCell.innerHTML = `<div class="notion-table-cell-text" contenteditable="true" spellcheck="true" 
+                                          placeholder=" " role="textbox" aria-label="Start typing to edit text" 
+                                          tabindex="0"></div>`;
+                row.insertBefore(newCell, addColumnCell);
+            });
+        }
+
+        function addRow() {
+            const table = tableContainer.querySelector('table');
+            if (!table) return;
+
+            const tbody = table.querySelector('tbody');
+            const headerRow = table.querySelector('thead tr');
+            const columnCount = headerRow.querySelectorAll('th').length - 1; // Exclude add column button
+
+            const newRow = document.createElement('tr');
+            for (let i = 0; i < columnCount; i++) {
+                const newCell = document.createElement('td');
+                newCell.innerHTML = `<div class="notion-table-cell-text" contenteditable="true" spellcheck="true" 
+                                          placeholder=" " role="textbox" aria-label="Start typing to edit text" 
+                                          tabindex="0"></div>`;
+                newRow.appendChild(newCell);
+            }
+            // Add empty cell for the add column column
+            const emptyCell = document.createElement('td');
+            newRow.appendChild(emptyCell);
+            
+            tbody.appendChild(newRow);
+        }
+    </script>
+
+</body>
+</html> 
