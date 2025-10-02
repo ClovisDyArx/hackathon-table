@@ -38,18 +38,51 @@
             width: 37.5%;
             height: 22%;
             cursor: pointer;
-            transition: transform 0.6s ease-out;
+            transition: transform 11s ease-out;
         }
         
         .drawer-img {
             width: 100%;
             height: 100%;
+            position: relative;
+            z-index: 2;
+        }
+
+        .drawer-trail {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #8B4513;
+            z-index: 0;
+            transform: translateX(0%);
+            transition: transform 13s ease-out;
         }
 
         /* Animation class */
         .opening {
-            transform: translateX(-30%);
+            transform: translateX(-60%) translateY(20%);
             opacity: 0.8;
+        }
+
+        .opening .drawer-trail {
+            transform: scaleX(1.5) scaleY(1.1);
+        }
+
+        .page-title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.5em;
+            color: #333;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .page-title .bold {
+            font-weight: bold;
         }
 
         .click-hint {
@@ -64,30 +97,57 @@
 </head>
 <body>
 
+    <div class="page-title">edi<span class="bold">Table</span></div>
+
     <div class="table-container">
         <img src="../static/table.jpg" alt="A wooden table" class="table-image">
         
         <!-- This is the clickable drawer. It's an invisible div containing the drawer image -->
         <!-- We use the drawer image itself to get the exact look and feel. -->
         <div class="drawer" id="drawer">
-             <img src="../static/drawer.jpg" alt="Table drawer" class="drawer-img">
+            <div class="drawer-trail"></div>
+            <img src="../static/drawer.jpg" alt="Table drawer" class="drawer-img">
         </div>
     </div>
 
     <div class="click-hint">Psst... try clicking the left drawer.</div>
 
+    <!-- Audio element for drawer sound -->
+    <audio id="drawerAudio" preload="auto">
+        <source src="../static/drawer_sound.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
     <script>
-        document.getElementById('drawer').addEventListener('click', function() {
-            const drawer = this;
+        function playDrawerAnimation() {
+            const drawer = document.getElementById('drawer');
+            const audio = document.getElementById('drawerAudio');
+            
+            // Remove any existing animation class first
+            drawer.classList.remove('opening');
+            
+            // Force a reflow to ensure the class removal is processed
+            drawer.offsetHeight;
             
             // Add the animation class
             drawer.classList.add('opening');
+            
+            // Play the audio
+            audio.currentTime = 0; // Reset audio to beginning
+            audio.play().catch(function(error) {
+                console.log('Audio play failed:', error);
+            });
+        }
+
+        // Play animation on drawer click
+        document.getElementById('drawer').addEventListener('click', function() {
+            playDrawerAnimation();
 
             // Wait for the animation to finish, then redirect
             setTimeout(function() {
                 // Redirect to the main application page
                 window.location.href = '/'; 
-            }, 800); // 800ms delay, slightly longer than the animation
+            }, 11000); // 11 seconds to match the audio duration
         });
     </script>
 
