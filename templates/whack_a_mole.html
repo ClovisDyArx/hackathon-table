@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whack-a-Table Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .game-cell {
+            width: 220px;
+            height: 140px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            cursor: url('/static/hammer.png') 16 16, pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: visible;
+            padding: 16px;
+        }
+        
+        .game-cell:hover {
+            background: #f0f9ff;
+        }
+        
+        .cell-content {
+            position: relative;
+            z-index: 1;
+            font-size: 1.5rem;
+            color: #374151;
+            text-align: left;
+            user-select: none;
+            pointer-events: none;
+        }
+        
+        .header-cell {
+            background: #14b8a6 !important;
+            color: white;
+            font-weight: 600;
+            text-align: center;
+            border: 1px solid #0d9488;
+        }
+        
+        .row-number {
+            background: #f3f4f6;
+            color: #6b7280;
+            font-weight: 600;
+            text-align: center;
+            width: 60px;
+            font-size: 1.2rem;
+            border: 1px solid #d1d5db;
+        }
+        
+        .column-header {
+            background: #f3f4f6;
+            color: #6b7280;
+            font-weight: 600;
+            text-align: center;
+            height: 50px;
+            font-size: 1.2rem;
+            border: 1px solid #d1d5db;
+        }
+        
+        .game-cell.whacked {
+            background: #fef3c7;
+            animation: whack 0.3s ease;
+        }
+        
+        .mole-icon {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 160px;
+            height: auto;
+            object-fit: contain;
+            z-index: 15;
+            filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.4));
+        }
+        
+        .game-cell.has-mole .mole-icon {
+            display: block;
+            animation: pop-up 0.4s ease;
+        }
+        
+        .game-cell.has-mole .cell-content {
+            opacity: 0.3;
+        }
+        
+        @keyframes pop-up {
+            0% { 
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0;
+            }
+            60% {
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+            100% { 
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes whack {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes hammer-swing {
+            0% { 
+                transform: rotate(0deg) scale(1);
+            }
+            50% { 
+                transform: rotate(-45deg) scale(1.2);
+            }
+            100% { 
+                transform: rotate(0deg) scale(1);
+            }
+        }
+        
+        .game-cell.hammer-active {
+            animation: hammer-swing 0.3s ease;
+        }
+        
+        .game-cell.hammer-active::after {
+            content: '🔨';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4rem;
+            animation: hammer-swing 0.3s ease;
+            pointer-events: none;
+            z-index: 20;
+        }
+        
+        .score-board {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            padding: 2rem;
+            border-radius: 1rem;
+            color: white;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+        }
+        
+        .game-table {
+            border-collapse: collapse;
+            border: 2px solid #9ca3af;
+            background: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            font-family: 'Calibri', 'Arial', sans-serif;
+        }
+        
+        .start-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+        }
+        
+        .start-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .nav-bar {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-link {
+            color: #d1d5db;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .nav-link:hover {
+            color: #ffffff;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .nav-link.active {
+            color: #ffffff;
+            border-bottom-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-100 to-blue-100 min-h-screen">
+    
+    <!-- Navigation Bar -->
+    <nav class="nav-bar">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-center space-x-8 py-4">
+                <a href="/" class="nav-link text-lg font-semibold px-4 py-2">Table Processor</a>
+                <a href="/joke" class="nav-link text-lg font-semibold px-4 py-2">Joke</a>
+                <a href="/whack-a-mole" class="nav-link active text-lg font-semibold px-4 py-2">Whack-a-Table</a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-5xl font-extrabold text-gray-900 mb-2">🔨 Whack-a-Table</h1>
+            <p class="text-xl text-gray-700">Moles are invading your spreadsheet! Click them fast!</p>
+        </header>
+
+        <!-- Score Board -->
+        <div class="score-board mb-8 flex justify-around items-center">
+            <div class="text-center">
+                <div class="text-sm font-semibold opacity-90 uppercase tracking-wide">Score</div>
+                <div id="score" class="text-4xl font-bold">0</div>
+            </div>
+            <div class="text-center">
+                <div class="text-sm font-semibold opacity-90 uppercase tracking-wide">Time Left</div>
+                <div id="timer" class="text-4xl font-bold">30</div>
+            </div>
+            <div class="text-center">
+                <div class="text-sm font-semibold opacity-90 uppercase tracking-wide">Misses</div>
+                <div id="misses" class="text-4xl font-bold">0</div>
+            </div>
+        </div>
+
+        <!-- Game Board -->
+        <div class="bg-white p-8 rounded-2xl shadow-2xl mb-8">
+            <div class="flex justify-center">
+                <table class="game-table">
+                    <tbody id="game-board">
+                        <!-- 4x4 grid will be generated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="text-center space-y-4">
+            <button id="start-btn" class="start-btn text-white font-bold py-4 px-12 rounded-xl text-xl shadow-lg">
+                Start Game
+            </button>
+            <div id="game-over" class="hidden">
+                <div class="bg-yellow-100 border-2 border-yellow-400 rounded-xl p-6 inline-block">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">🎉 Game Over!</h2>
+                    <p class="text-xl text-gray-700 mb-4">Final Score: <span id="final-score" class="font-bold text-blue-600">0</span></p>
+                    <p class="text-lg text-gray-600">Accuracy: <span id="accuracy" class="font-bold">0%</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let score = 0;
+        let misses = 0;
+        let timeLeft = 30;
+        let gameActive = false;
+        let tableInterval = null;
+        let timerInterval = null;
+        let currentTableCell = null;
+
+        // DOM elements
+        const scoreElement = document.getElementById('score');
+        const timerElement = document.getElementById('timer');
+        const missesElement = document.getElementById('misses');
+        const startBtn = document.getElementById('start-btn');
+        const gameOverElement = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+        const accuracyElement = document.getElementById('accuracy');
+        const gameBoard = document.getElementById('game-board');
+
+        // Initialize game board (4x4 grid styled like Excel)
+        function initializeBoard() {
+            gameBoard.innerHTML = '';
+            const columns = ['A', 'B', 'C', 'D'];
+            const headers = ['Month', 'Salary ($)', 'Exp ($)', 'Sav ($)'];
+            const data = [
+                ['Jan', '4,500', '500', '4,000'],
+                ['Feb', '5,000', '650', '4,350'],
+                ['Mar', '4,600', '445', '4,155'],
+                ['Apr', '4,750', '700', '4,050']
+            ];
+            
+            // Add column headers row (A, B, C, D)
+            const headerRow = document.createElement('tr');
+            const cornerCell = document.createElement('td');
+            cornerCell.className = 'column-header';
+            headerRow.appendChild(cornerCell);
+            
+            columns.forEach(col => {
+                const th = document.createElement('td');
+                th.className = 'column-header';
+                th.textContent = col;
+                headerRow.appendChild(th);
+            });
+            gameBoard.appendChild(headerRow);
+            
+            // Add data header row (Month, Salary, etc.)
+            const dataHeaderRow = document.createElement('tr');
+            const rowNumHeader = document.createElement('td');
+            rowNumHeader.className = 'row-number';
+            rowNumHeader.textContent = '1';
+            dataHeaderRow.appendChild(rowNumHeader);
+            
+            headers.forEach(header => {
+                const th = document.createElement('td');
+                th.className = 'game-cell header-cell';
+                th.innerHTML = `<div class="cell-content">${header}</div>`;
+                dataHeaderRow.appendChild(th);
+            });
+            gameBoard.appendChild(dataHeaderRow);
+            
+            // Add data rows
+            for (let row = 0; row < 4; row++) {
+                const tr = document.createElement('tr');
+                
+                // Row number
+                const rowNum = document.createElement('td');
+                rowNum.className = 'row-number';
+                rowNum.textContent = row + 2;
+                tr.appendChild(rowNum);
+                
+                for (let col = 0; col < 4; col++) {
+                    const td = document.createElement('td');
+                    td.className = 'game-cell';
+                    td.dataset.row = row;
+                    td.dataset.col = col;
+                    
+                    // Add cell content with data
+                    const cellContent = document.createElement('div');
+                    cellContent.className = 'cell-content';
+                    cellContent.textContent = data[row][col];
+                    td.appendChild(cellContent);
+                    
+                    const tableIcon = document.createElement('img');
+                    tableIcon.className = 'mole-icon';
+                    tableIcon.src = '/static/mole.png';
+                    tableIcon.alt = 'Table';
+                    td.appendChild(tableIcon);
+                    
+                    td.addEventListener('click', handleCellClick);
+                    tr.appendChild(td);
+                }
+                gameBoard.appendChild(tr);
+            }
+        }
+
+        // Handle cell click
+        function handleCellClick(event) {
+            if (!gameActive) return;
+            
+            const cell = event.currentTarget;
+            
+            // Add hammer animation
+            cell.classList.add('hammer-active');
+            setTimeout(() => {
+                cell.classList.remove('hammer-active');
+            }, 300);
+            
+            if (cell.classList.contains('has-mole')) {
+                // Hit!
+                score++;
+                scoreElement.textContent = score;
+                cell.classList.remove('has-mole');
+                cell.classList.add('whacked');
+                
+                // Play whack sound
+                const whackSound = new Audio('/static/whack02-87839.mp3');
+                whackSound.volume = 0.5;
+                whackSound.play().catch(err => console.log('Audio play failed:', err));
+                
+                setTimeout(() => {
+                    cell.classList.remove('whacked');
+                }, 300);
+                
+                currentTableCell = null;
+                spawnTable();
+            } else {
+                // Miss!
+                misses++;
+                missesElement.textContent = misses;
+                cell.classList.add('whacked');
+                
+                setTimeout(() => {
+                    cell.classList.remove('whacked');
+                }, 300);
+            }
+        }
+
+        // Spawn a table in a random cell
+        function spawnTable() {
+            if (!gameActive) return;
+            
+            // Remove previous table
+            if (currentTableCell) {
+                currentTableCell.classList.remove('has-mole');
+            }
+            
+            // Get all cells
+            const cells = document.querySelectorAll('.game-cell');
+            const randomIndex = Math.floor(Math.random() * cells.length);
+            currentTableCell = cells[randomIndex];
+            currentTableCell.classList.add('has-mole');
+        }
+
+        // Start game
+        function startGame() {
+            // Reset state
+            score = 0;
+            misses = 0;
+            timeLeft = 30;
+            gameActive = true;
+            currentTableCell = null;
+            
+            // Update UI
+            scoreElement.textContent = score;
+            missesElement.textContent = misses;
+            timerElement.textContent = timeLeft;
+            gameOverElement.classList.add('hidden');
+            startBtn.disabled = true;
+            startBtn.textContent = 'Game in Progress...';
+            
+            // Clear existing intervals
+            if (tableInterval) clearInterval(tableInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            
+            // Start spawning tables (slower pace - every 1.5 seconds)
+            spawnTable();
+            tableInterval = setInterval(spawnTable, 1500); // New table every 1.5 seconds
+            
+            // Start timer
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        // End game
+        function endGame() {
+            gameActive = false;
+            
+            // Clear intervals
+            if (tableInterval) clearInterval(tableInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            
+            // Remove current table
+            if (currentTableCell) {
+                currentTableCell.classList.remove('has-mole');
+            }
+            
+            // Calculate accuracy
+            const totalClicks = score + misses;
+            const accuracy = totalClicks > 0 ? Math.round((score / totalClicks) * 100) : 0;
+            
+            // Update UI
+            finalScoreElement.textContent = score;
+            accuracyElement.textContent = accuracy + '%';
+            gameOverElement.classList.remove('hidden');
+            startBtn.disabled = false;
+            startBtn.textContent = 'Play Again';
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startGame);
+
+        // Initialize board on load
+        initializeBoard();
+    </script>
+
+</body>
+</html> 

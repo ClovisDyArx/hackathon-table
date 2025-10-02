@@ -125,9 +125,41 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+        
+        .nav-bar {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-link {
+            color: #d1d5db;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .nav-link:hover {
+            color: #ffffff;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .nav-link.active {
+            color: #ffffff;
+            border-bottom-color: #3b82f6;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
+
+    <!-- Navigation Bar -->
+    <nav class="nav-bar">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-center space-x-8 py-4">
+                <a href="/" class="nav-link active text-lg font-semibold px-4 py-2">Table Processor</a>
+                <a href="/joke" class="nav-link text-lg font-semibold px-4 py-2">Joke</a>
+                <a href="/whack-a-mole" class="nav-link text-lg font-semibold px-4 py-2">Whack-a-Table</a>
+            </div>
+        </div>
+    </nav>
 
     <div class="container mx-auto px-4 py-8 max-w-6xl">
         <!-- Header -->

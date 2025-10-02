@@ -156,6 +156,20 @@ async def root(request: Request):
     """
     return templates.TemplateResponse("table.html", {"request": request})
 
+@app.get("/whack-a-mole", response_class=HTMLResponse)
+async def whack_a_mole(request: Request):
+    """
+    Serve the whack-a-table game with a 4x4 table.
+    """
+    return templates.TemplateResponse("whack_a_mole.html", {"request": request})
+
+@app.get("/joke", response_class=HTMLResponse)
+async def joke_page(request: Request):
+    """
+    Serve the joke/splash page with the table drawer.
+    """
+    return templates.TemplateResponse("joke.html", {"request": request})
+
 @app.get("/health")
 async def health_check():
     """

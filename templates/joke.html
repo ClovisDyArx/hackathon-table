@@ -8,12 +8,45 @@
         body, html {
             height: 100%;
             margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             background-color: #f0f0f0;
             font-family: sans-serif;
             overflow: hidden;
+        }
+        
+        .content-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 60px);
+        }
+        
+        .nav-bar {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-link {
+            color: #d1d5db;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            text-decoration: none;
+        }
+        
+        .nav-link:hover {
+            color: #ffffff;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .nav-link.active {
+            color: #ffffff;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .nav-container {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            padding: 1rem;
         }
 
         .table-container {
@@ -64,7 +97,17 @@
 </head>
 <body>
 
-    <div class="table-container">
+    <!-- Navigation Bar -->
+    <nav class="nav-bar">
+        <div class="nav-container">
+            <a href="/" class="nav-link" style="font-size: 1.125rem; font-weight: 600; padding: 0.5rem 1rem;">Table Processor</a>
+            <a href="/joke" class="nav-link active" style="font-size: 1.125rem; font-weight: 600; padding: 0.5rem 1rem;">Joke</a>
+            <a href="/whack-a-mole" class="nav-link" style="font-size: 1.125rem; font-weight: 600; padding: 0.5rem 1rem;">Whack-a-Table</a>
+        </div>
+    </nav>
+
+    <div class="content-wrapper">
+        <div class="table-container">
         <img src="../static/table.jpg" alt="A wooden table" class="table-image">
         
         <!-- This is the clickable drawer. It's an invisible div containing the drawer image -->
@@ -72,9 +115,10 @@
         <div class="drawer" id="drawer">
              <img src="../static/drawer.jpg" alt="Table drawer" class="drawer-img">
         </div>
-    </div>
+        </div>
 
-    <div class="click-hint">Psst... try clicking the left drawer.</div>
+        <div class="click-hint">Psst... try clicking the left drawer.</div>
+    </div>
 
     <script>
         document.getElementById('drawer').addEventListener('click', function() {
