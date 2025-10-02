@@ -153,12 +153,12 @@ async def process_image_with_vision_api(image_base64: str) -> Dict[str, List]:
                 detail=f"Failed to parse AI response as JSON: {str(e)}\nResponse: {content}"
             )
 
-@app.get("/")
-async def root():
+@app.get("/", response_class=HTMLResponse)
+async def table_processor(request: Request):
     """
-    Redirect to the joke page.
+    Serve the table processor page.
     """
-    return RedirectResponse(url="/joke")
+    return templates.TemplateResponse("table.html", {"request": request})
 
 
 @app.get("/whack-a-mole", response_class=HTMLResponse)
