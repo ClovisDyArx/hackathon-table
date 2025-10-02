@@ -214,7 +214,7 @@
                             🎤 Edit with Voice
                         </button>
                         <button id="voice-describe-table-btn" class="bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition-all duration-200">
-                            🔊 Describe Table
+                            🔊 Describe/Create Table
                         </button>
                         <button id="export-csv" class="bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-all duration-200">
                             Export CSV
@@ -663,39 +663,97 @@
 
         async function describeCurrentTable() {
             const table = tableContainer.querySelector('table');
-            if (!table) {
-                showError('No table to describe');
-                return;
-            }
-
-            const tableData = getCurrentTableData();
-            const description = generateTableDescription(tableData);
             
-            console.log('Generated description:', description);
-
-            try {
-                const formData = new FormData();
-                formData.append('text', description);
+            if (table) {
+                // If table exists, describe it
+                const tableData = getCurrentTableData();
+                const description = generateTableDescription(tableData);
                 
-                const response = await fetch('http://localhost:8000/api/speak', {
-                    method: 'POST',
-                    body: formData
-                });
+                console.log('Generated description:', description);
 
-                if (!response.ok) {
-                    const error = await response.text();
-                    console.error('API Error:', error);
-                    throw new Error(`API Error: ${error}`);
+                try {
+                    const formData = new FormData();
+                    formData.append('text', description);
+                    
+                    const response = await fetch('http://localhost:8000/api/speak', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.text();
+                        console.error('API Error:', error);
+                        throw new Error(`API Error: ${error}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('Voice description successful:', result);
+                    // Voice description generated successfully
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError(`Failed to generate voice description: ${error.message}`);
+                }
+            } else {
+                // If no table exists, prompt for voice description to create one
+                const userConfirmed = confirm('No table found. Would you like to create a table using voice description?');
+                if (userConfirmed) {
+                    await createTableWithVoiceDescription();
+                }
+            }
+        }
+
+        async function createTableWithVoiceDescription() {
+            // Create audio input for voice description
+            const audioInput = document.createElement('input');
+            audioInput.type = 'file';
+            audioInput.accept = 'audio/*';
+            audioInput.style.display = 'none';
+            document.body.appendChild(audioInput);
+
+            audioInput.click();
+
+            audioInput.onchange = async (e) => {
+                const audioFile = e.target.files[0];
+                if (!audioFile) {
+                    document.body.removeChild(audioInput);
+                    return;
                 }
 
-                const result = await response.json();
-                console.log('Voice description successful:', result);
-                // Voice description generated successfully
+                const formData = new FormData();
+                formData.append('file', audioFile);
 
-            } catch (error) {
-                console.error('Error:', error);
-                showError(`Failed to generate voice description: ${error.message}`);
-            }
+                showLoading(true);
+                hideError();
+                outputSection.classList.add('hidden');
+
+                try {
+                    console.log('Creating table with voice description...');
+                    const response = await fetch('http://localhost:8000/api/create_table_voice', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.text();
+                        console.error('API Error:', error);
+                        throw new Error(`API Error: ${error}`);
+                    }
+
+                    const data = await response.json();
+                    console.log('Voice table creation successful:', data);
+                    renderTable(data);
+                    outputSection.classList.remove('hidden');
+                    // Table created successfully with voice description
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError(`Failed to create table with voice: ${error.message}`);
+                } finally {
+                    showLoading(false);
+                    document.body.removeChild(audioInput);
+                }
+            };
         }
 
         function getCurrentTableData() {
